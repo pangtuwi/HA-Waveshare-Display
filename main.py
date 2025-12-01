@@ -8,8 +8,18 @@ uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
 
 # Initialize display
 lcd = LCD_1inch28()
+lcd.set_bl_pwm(65535)  # Set brightness to maximum
+
+# Display welcome message
 lcd.fill(lcd.white)
+lcd.text("Home Assistant", 60, 100, lcd.black)
+lcd.text("Display", 85, 120, lcd.black)
+lcd.text("Ready!", 90, 140, lcd.black)
 lcd.show()
+print("Welcome message displayed")
+
+# Wait for 2 seconds to show welcome message
+time.sleep(2)
 
 # Display settings
 current_brightness = 100
@@ -77,22 +87,42 @@ def process_command(cmd_line):
 
 def update_display_for_mode(mode):
     """Update display based on selected mode"""
-    lcd.fill(lcd.white)
-    
+
     if mode == "Clock":
-        lcd.text("Clock Mode", 70, 100, lcd.black)
-        lcd.text("12:34 PM", 80, 140, lcd.black)
-        
+        # Black background for clock mode
+        lcd.fill(lcd.black)
+
+        # Get current time
+        current_time = time.localtime()
+        hour = current_time[3]
+        minute = current_time[4]
+
+        # Format time as 12-hour with AM/PM
+        am_pm = "AM" if hour < 12 else "PM"
+        display_hour = hour if hour <= 12 else hour - 12
+        if display_hour == 0:
+            display_hour = 12
+        time_str = "{:02d}:{:02d} {}".format(display_hour, minute, am_pm)
+
+        # Display "Current Time" label
+        lcd.text("Current Time", 65, 80, lcd.white)
+
+        # Display large time (using write_text with size 3)
+        lcd.write_text(time_str, 35, 110, 3, lcd.white)
+
     elif mode == "Sensors":
+        lcd.fill(lcd.white)
         lcd.text("Sensors", 80, 80, lcd.black)
         lcd.text("Temp: 22C", 70, 110, lcd.black)
         lcd.text("Humidity: 45%", 60, 140, lcd.black)
         
     elif mode == "Weather":
+        lcd.fill(lcd.white)
         lcd.text("Weather", 80, 100, lcd.black)
         lcd.text("Sunny 24C", 70, 140, lcd.black)
-        
+
     elif mode == "Custom":
+        lcd.fill(lcd.white)
         lcd.text("Custom Mode", 60, 120, lcd.black)
     
     lcd.show()
@@ -106,6 +136,10 @@ def send_sensor_data():
         "mode": current_mode
     }
     uart.write(f"SENSOR:{json.dumps(data)}\n".encode())
+
+# Display initial clock mode after welcome message
+update_display_for_mode(current_mode)
+print(f"Switched to {current_mode} mode")
 
 # Main loop
 last_sensor_update = time.ticks_ms()
