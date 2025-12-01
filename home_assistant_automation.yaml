@@ -1,0 +1,38 @@
+# Home Assistant Automation Example for Weather Updates
+#
+# Add this to your Home Assistant configuration.yaml or automations.yaml
+# Replace 'weather.home' with your actual weather entity ID
+# Replace 'esphome_web_b11440' with your actual ESP32 device name
+
+automation:
+  - alias: "Update RP2350 Display Weather"
+    description: "Send weather data to RP2350 display every 5 minutes"
+    trigger:
+      - platform: time_pattern
+        minutes: "/5"  # Update every 5 minutes
+    action:
+      - service: esphome.esphome_web_b11440_send_weather
+        data:
+          condition: "{{ states('weather.home') }}"
+          temperature: "{{ state_attr('weather.home', 'temperature') }}°C"
+          humidity: "{{ state_attr('weather.home', 'humidity') }}%"
+
+# Alternative: Update when weather changes
+  - alias: "Update RP2350 Display Weather on Change"
+    description: "Send weather data when it changes"
+    trigger:
+      - platform: state
+        entity_id: weather.home
+    action:
+      - service: esphome.esphome_web_b11440_send_weather
+        data:
+          condition: "{{ states('weather.home') }}"
+          temperature: "{{ state_attr('weather.home', 'temperature') }}°C"
+          humidity: "{{ state_attr('weather.home', 'humidity') }}%"
+
+# Manual service call example (for testing):
+# service: esphome.esphome_web_b11440_send_weather
+# data:
+#   condition: "Sunny"
+#   temperature: "24°C"
+#   humidity: "45%"

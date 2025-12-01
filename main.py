@@ -32,9 +32,14 @@ current_brightness = 100
 current_mode = "Clock"
 display_color = lcd.black
 
+# Weather data
+weather_condition = "N/A"
+weather_temp = "N/A"
+weather_humidity = "N/A"
+
 def process_command(cmd_line):
     """Process incoming commands from Home Assistant via ESP32"""
-    global current_brightness, current_mode, display_color
+    global current_brightness, current_mode, display_color, weather_condition, weather_temp, weather_humidity
 
     try:
         print(f"Received command: {cmd_line}")
@@ -109,6 +114,20 @@ def process_command(cmd_line):
                 if current_mode == "Clock":
                     update_display_for_mode(current_mode)
 
+        elif cmd_line.startswith(b'WEATHER:'):
+            # Update weather data
+            # Format: WEATHER:condition,temperature,humidity
+            weather_str = cmd_line[8:].decode().strip()
+            weather_parts = weather_str.split(',')
+            if len(weather_parts) == 3:
+                weather_condition = weather_parts[0]
+                weather_temp = weather_parts[1]
+                weather_humidity = weather_parts[2]
+                print(f"Weather updated: {weather_condition}, {weather_temp}, {weather_humidity}")
+                # Refresh display if in weather mode
+                if current_mode == "Weather":
+                    update_display_for_mode(current_mode)
+
     except Exception as e:
         print(f"Error processing command: {e}")
 
@@ -162,8 +181,10 @@ def update_display_for_mode(mode):
 
     elif mode == "Weather":
         lcd.fill(lcd.white)
-        lcd.text("Weather", 80, 100, lcd.black)
-        lcd.text("Sunny 24C", 70, 140, lcd.black)
+        lcd.text("Weather", 80, 60, lcd.black)
+        lcd.text(weather_condition, 70, 100, lcd.black)
+        lcd.text("Temp: " + weather_temp, 60, 130, lcd.black)
+        lcd.text("Humid: " + weather_humidity, 55, 160, lcd.black)
 
     elif mode == "Custom":
         lcd.fill(lcd.white)

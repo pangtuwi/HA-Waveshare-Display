@@ -40,6 +40,17 @@ api:
             data: !lambda |-
               std::string msg = "NOTIFY:" + title + ":" + message + ":" + color + "\n";
               return std::vector<uint8_t>(msg.begin(), msg.end());
+    - service: send_weather
+      variables:
+        condition: string
+        temperature: string
+        humidity: string
+      then:
+        - uart.write:
+            id: uart_bus
+            data: !lambda |-
+              std::string msg = "WEATHER:" + condition + "," + temperature + "," + humidity + "\n";
+              return std::vector<uint8_t>(msg.begin(), msg.end());
 
 ota:
   - platform: esphome
