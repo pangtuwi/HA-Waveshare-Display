@@ -1,5 +1,5 @@
 esphome:
-  name: ESPHome Web b11440
+  name: esphome-web-b11440
   friendly_name: RP2350 Display Bridge
   on_boot:
     priority: -100
