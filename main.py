@@ -4,7 +4,7 @@ import time
 import json
 
 # Initialize UART
-uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
+uart = UART(0, baudrate=115200, tx=Pin(16), rx=Pin(17))
 
 # Initialize display
 lcd = LCD_1inch28()
