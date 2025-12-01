@@ -1,0 +1,87 @@
+esphome:
+  name: rp2350-bridge
+  friendly_name: RP2350 Display Bridge
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+
+api:
+  services:
+    - service: send_notification
+      variables:
+        title: string
+        message: string
+        color: string
+      then:
+        - uart.write:
+            id: uart_bus
+            data: !lambda |-
+              std::string msg = "NOTIFY:" + title + ":" + message + ":" + color + "\n";
+              return std::vector<uint8_t>(msg.begin(), msg.end());
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+# UART to RP2350
+uart:
+  id: uart_bus
+  tx_pin: GPIO43
+  rx_pin: GPIO44
+  baud_rate: 115200
+
+# Text input for messages
+text:
+  - platform: template
+    name: "Display Message"
+    id: display_msg
+    optimistic: true
+    on_value:
+      then:
+        - uart.write:
+            id: uart_bus
+            data: !lambda |-
+              std::string msg = "MSG:" + x + "\n";
+              return std::vector<uint8_t>(msg.begin(), msg.end());
+
+# Brightness control
+number:
+  - platform: template
+    name: "Display Brightness"
+    min_value: 0
+    max_value: 100
+    step: 10
+    initial_value: 100
+    on_value:
+      then:
+        - uart.write:
+            id: uart_bus
+            data: !lambda |-
+              std::string msg = "BRIGHT:" + to_string((int)x) + "\n";
+              return std::vector<uint8_t>(msg.begin(), msg.end());
+
+# Display mode selector
+select:
+  - platform: template
+    name: "Display Mode"
+    options:
+      - "Clock"
+      - "Sensors"
+      - "Weather"
+      - "Custom"
+    initial_option: "Clock"
+    on_value:
+      then:
+        - uart.write:
+            id: uart_bus
+            data: !lambda |-
+              std::string msg = "MODE:" + x + "\n";
+              return std::vector<uint8_t>(msg.begin(), msg.end());
