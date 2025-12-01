@@ -2,6 +2,7 @@ from machine import UART, Pin, RTC
 from LCD_1inch28 import LCD_1inch28, Touch_CST816T
 import time
 import json
+import bitmap_fonts
 
 # Initialize UART
 uart = UART(0, baudrate=115200, tx=Pin(16), rx=Pin(17))
@@ -36,6 +37,12 @@ display_color = lcd.black
 weather_condition = "N/A"
 weather_temp = "N/A"
 weather_humidity = "N/A"
+
+# Sensor data (from IMU)
+sensor_temp = "N/A"
+sensor_accel_x = 0.0
+sensor_accel_y = 0.0
+sensor_accel_z = 0.0
 
 def process_command(cmd_line):
     """Process incoming commands from Home Assistant via ESP32"""
@@ -160,31 +167,85 @@ def update_display_for_mode(mode):
         hour = current_time[3]
         minute = current_time[4]
 
+        # Get date info
+        year = current_time[0]
+        month = current_time[1]
+        day = current_time[2]
+        weekday = current_time[6]
+
+        # Day names
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        day_name = days[weekday]
+
         # Format time as 12-hour with AM/PM
         am_pm = "AM" if hour < 12 else "PM"
         display_hour = hour if hour < 12 else hour - 12
         if display_hour == 0:
             display_hour = 12
-        time_str = "{:02d}:{:02d} {}".format(display_hour, minute, am_pm)
 
-        # Display "Current Time" label
-        lcd.text("Sandbach Time", 65, 80, lcd.white)
+        # Just the time without AM/PM for larger display
+        time_str = "{:02d}:{:02d}".format(display_hour, minute)
 
-        # Display large time (using write_text with size 3)
-        lcd.write_text(time_str, 35, 110, 3, lcd.white)
+        # Top: Day and date
+        date_str = "{} {}/{}/{}".format(day_name, day, month, year)
+        lcd.text(date_str, 55, 50, lcd.white)
+
+        # Center: Very large time using bitmap font (16x24 per char)
+        # Calculate centering for time string
+        time_width = bitmap_fonts.get_text_width(time_str, spacing=4)
+        time_x = (240 - time_width) // 2
+        bitmap_fonts.draw_text(lcd, time_str, time_x, 100, lcd.white, spacing=4)
+
+        # AM/PM indicator below time
+        lcd.write_text(am_pm, 100, 155, 2, lcd.white)
 
     elif mode == "Sensors":
-        lcd.fill(lcd.white)
-        lcd.text("Sensors", 80, 80, lcd.black)
-        lcd.text("Temp: 22C", 70, 110, lcd.black)
-        lcd.text("Humidity: 45%", 60, 140, lcd.black)
+        # Gradient background (top to bottom)
+        lcd.fill(0xE73F)  # Light cyan background
+
+        # Title
+        lcd.text("SENSOR DATA", 70, 40, lcd.black)
+
+        # Temperature section
+        lcd.text("Temperature", 70, 70, lcd.black)
+        if sensor_temp != "N/A":
+            lcd.write_text(sensor_temp, 70, 85, 3, 0xF800)  # Red
+        else:
+            lcd.write_text("--.-C", 65, 85, 3, 0x7BEF)  # Gray
+
+        # Accelerometer section
+        lcd.text("Accelerometer", 60, 135, lcd.black)
+        accel_text = "X:{:.1f} Y:{:.1f}".format(sensor_accel_x, sensor_accel_y)
+        lcd.text(accel_text, 45, 155, lcd.black)
+        z_text = "Z:{:.1f}g".format(sensor_accel_z)
+        lcd.text(z_text, 85, 170, lcd.black)
 
     elif mode == "Weather":
-        lcd.fill(lcd.white)
-        lcd.text("Weather", 80, 60, lcd.black)
-        lcd.text(weather_condition, 70, 100, lcd.black)
-        lcd.text("Temp: " + weather_temp, 60, 130, lcd.black)
-        lcd.text("Humid: " + weather_humidity, 55, 160, lcd.black)
+        # Choose background color based on condition
+        if "clear" in weather_condition.lower() or "sunny" in weather_condition.lower():
+            bg_color = 0xFFE0  # Light yellow
+        elif "cloud" in weather_condition.lower():
+            bg_color = 0xCE79  # Light gray
+        elif "rain" in weather_condition.lower() or "drizzle" in weather_condition.lower():
+            bg_color = 0x5D1F  # Light blue
+        else:
+            bg_color = lcd.white
+
+        lcd.fill(bg_color)
+
+        # Weather condition at top (centered)
+        condition_x = 120 - (len(weather_condition) * 4)  # Approximate centering
+        lcd.write_text(weather_condition, condition_x, 40, 2, lcd.black)
+
+        # Large temperature in center
+        temp_display = weather_temp.replace("°C", "")
+        temp_x = 60 if len(temp_display) <= 4 else 50
+        lcd.write_text(temp_display, temp_x, 90, 4, lcd.black)
+        lcd.text("C", 150, 105, lcd.black)
+
+        # Humidity at bottom
+        lcd.text("Humidity:", 75, 155, lcd.black)
+        lcd.write_text(weather_humidity, 85, 170, 2, lcd.black)
 
     elif mode == "Custom":
         lcd.fill(lcd.white)
