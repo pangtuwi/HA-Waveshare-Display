@@ -1,10 +1,13 @@
-from machine import UART, Pin
+from machine import UART, Pin, RTC
 from LCD_1inch28 import LCD_1inch28
 import time
 import json
 
 # Initialize UART
 uart = UART(0, baudrate=115200, tx=Pin(16), rx=Pin(17))
+
+# Initialize RTC
+rtc = RTC()
 
 # Initialize display
 lcd = LCD_1inch28()
@@ -81,7 +84,27 @@ def process_command(cmd_line):
             # Convert RGB888 to RGB565 format (note: uses BRG format due to framebuf)
             display_color = ((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3)
             print(f"Color set to RGB({r},{g},{b})")
-            
+
+        elif cmd_line.startswith(b'SETTIME:'):
+            # Set RTC time from ESP32
+            # Format: SETTIME:YYYY,MM,DD,HH,MM,SS,WEEKDAY,YEARDAY
+            time_str = cmd_line[8:].decode().strip()
+            time_parts = time_str.split(',')
+            if len(time_parts) == 8:
+                year = int(time_parts[0])
+                month = int(time_parts[1])
+                day = int(time_parts[2])
+                hour = int(time_parts[3])
+                minute = int(time_parts[4])
+                second = int(time_parts[5])
+                weekday = int(time_parts[6])
+                yearday = int(time_parts[7])
+                rtc.datetime((year, month, day, weekday, hour, minute, second, 0))
+                print(f"Time set to: {year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}")
+                # Refresh display if in clock mode
+                if current_mode == "Clock":
+                    update_display_for_mode(current_mode)
+
     except Exception as e:
         print(f"Error processing command: {e}")
 
@@ -105,7 +128,7 @@ def update_display_for_mode(mode):
         time_str = "{:02d}:{:02d} {}".format(display_hour, minute, am_pm)
 
         # Display "Current Time" label
-        lcd.text("Current Time", 65, 80, lcd.white)
+        lcd.text("Sandbach Time", 65, 80, lcd.white)
 
         # Display large time (using write_text with size 3)
         lcd.write_text(time_str, 35, 110, 3, lcd.white)
