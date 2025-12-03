@@ -21,9 +21,9 @@ A MicroPython project for the Waveshare RP2350-Touch-LCD-1.28 display that integ
 
 ### Display Modes
 - **Clock**: Large bitmap font time display with date and AM/PM indicator
-- **Sensors**: Hive thermostat data with current/target temperature and heating/hot water status
+- **Bedroom**: Bedroom temperature sensor data with large temperature and humidity display
 - **Weather**: Weather condition, large temperature display, and humidity
-- **Cycle**: Auto-rotates through Clock → Weather → Sensors every 10 seconds
+- **Cycle**: Auto-rotates through Clock → Weather → Bedroom every 10 seconds
 
 ### Interaction
 - **Touch Control**: Touch button at bottom cycles through modes
@@ -31,15 +31,15 @@ A MicroPython project for the Waveshare RP2350-Touch-LCD-1.28 display that integ
 - **Debounced Input**: 500ms debounce prevents accidental double-presses
 
 ### Display Features
-- **Custom Bitmap Fonts**: Crisp 16x24 and 24x32 pixel fonts for large numbers
-- **Black Backgrounds**: High contrast for better readability
-- **Color-Coded Status**: Red for ON, Gray for OFF (heating/hot water)
+- **Custom Bitmap Fonts**: Crisp 16x24, 24x32, and 32x48 pixel fonts for large numbers
+- **Multiple Backgrounds**: Black for Clock/Weather, dark grey for Bedroom
+- **Large Temperature Displays**: Extra-large bitmap fonts for easy reading
 - **Auto-Updates**: Clock refreshes every minute, data updates from Home Assistant
 
 ### Integration
 - **Time Sync**: Automatic RTC sync from Home Assistant on boot and hourly
 - **Weather Data**: Updates every 5 minutes or on state change
-- **Hive Thermostat**: Updates every 2 minutes or on state change
+- **Bedroom Sensors**: Temperature and humidity updates every 2 minutes or on state change
 - **Brightness Control**: 0-100% via Home Assistant
 - **ESPHome Services**: Direct service calls from Home Assistant
 
@@ -51,6 +51,7 @@ A MicroPython project for the Waveshare RP2350-Touch-LCD-1.28 display that integ
 ├── LCD_1inch28.py               # Hardware driver library
 ├── bitmap_fonts.py              # 16x24 pixel bitmap font
 ├── bitmap_fonts_32.py           # 24x32 pixel bitmap font
+├── bitmap_fonts_48.py           # 32x48 pixel bitmap font
 ├── ESP32-s3.YAML                # ESPHome configuration for ESP32
 ├── home_assistant_automation.yaml # HA automation examples
 ├── BITMAP_FONTS_README.md       # Guide for custom bitmap fonts
@@ -77,6 +78,7 @@ mpremote cp main.py :main.py
 mpremote cp LCD_1inch28.py :LCD_1inch28.py
 mpremote cp bitmap_fonts.py :bitmap_fonts.py
 mpremote cp bitmap_fonts_32.py :bitmap_fonts_32.py
+mpremote cp bitmap_fonts_48.py :bitmap_fonts_48.py
 ```
 
 The code will auto-run on power-up since it's named `main.py`.
@@ -100,8 +102,8 @@ Connect the RP2350 to ESP32-S3 via UART:
 1. Copy automations from `home_assistant_automation.yaml`
 2. Update entity IDs to match your setup:
    - `weather.forecast_home` - Your weather entity
-   - `climate.hive_thermostat` - Your Hive thermostat
-   - `water_heater.hive_hot_water` - Your Hive hot water
+   - `sensor.esphome_web_b10c2c_bedroom_temperature` - Your bedroom temperature sensor
+   - `sensor.esphome_web_b10c2c_bedroom_humidity` - Your bedroom humidity sensor
 3. Add to your Home Assistant `automations.yaml`
 
 ## UART Command Protocol
@@ -117,14 +119,15 @@ Commands are line-delimited ASCII strings sent from ESP32 to RP2350:
 ### Configuration Commands
 
 - `BRIGHT:<0-100>` - Set brightness percentage (0-100)
-- `MODE:<mode_name>` - Set display mode (Clock/Sensors/Weather/Cycle)
+- `MODE:<mode_name>` - Set display mode (Clock/Bedroom/Weather/Cycle)
 - `COLOR:<r>,<g>,<b>` - Set text color (RGB values 0-255)
 - `SETTIME:<YYYY>,<MM>,<DD>,<HH>,<MM>,<SS>,<WEEKDAY>,<YEARDAY>` - Set RTC time
 
 ### Data Update Commands
 
 - `WEATHER:<condition>,<temperature>,<humidity>` - Update weather data
-- `HIVE:<current_temp>,<target_temp>,<heating_status>,<hotwater_status>` - Update Hive data
+- `BEDROOM:<temperature>,<humidity>` - Update bedroom temperature sensor data
+- `HIVE:<current_temp>,<target_temp>,<heating_status>,<hotwater_status>` - Update Hive data (legacy)
 
 ### Sensor Responses (RP2350 to ESP32)
 
@@ -139,21 +142,21 @@ Commands are line-delimited ASCII strings sent from ESP32 to RP2350:
 - 12-hour format with AM/PM
 - Auto-updates every minute
 
-### Sensors Mode (Hive Thermostat)
-- Black background with white text
-- Current temperature (large 16x24 bitmap font)
-- Target temperature (yellow, medium size)
-- Heating status (ON=red, OFF=gray)
-- Hot water status (ON=red, OFF=gray)
+### Bedroom Mode
+- Dark grey background (RGB 64,64,64) with white text
+- Title: "BEDROOM"
+- Large temperature display (24x32 bitmap font)
+- Humidity display (16x24 bitmap font)
+- Data from Home Assistant bedroom temperature sensor
 
 ### Weather Mode
 - Black background with white text
 - Weather condition at top
-- Very large temperature (24x32 bitmap font, no decimals)
+- Very large temperature (32x48 bitmap font, no decimals)
 - Humidity display (16x24 bitmap font)
 
 ### Cycle Mode
-- Auto-cycles through Clock → Weather → Sensors
+- Auto-cycles through Clock → Weather → Bedroom
 - Changes display every 10 seconds
 - Uses same layouts as individual modes
 
@@ -188,7 +191,10 @@ The ESP32 bridge provides these services to Home Assistant:
 - `esphome.esphome_web_b11440_send_weather` - Send weather data
   - Parameters: `condition`, `temperature`, `humidity`
 
-- `esphome.esphome_web_b11440_send_hive` - Send Hive thermostat data
+- `esphome.esphome_web_b11440_send_bedroom` - Send bedroom temperature data
+  - Parameters: `temperature`, `humidity`
+
+- `esphome.esphome_web_b11440_send_hive` - Send Hive thermostat data (legacy)
   - Parameters: `current_temp`, `target_temp`, `heating_status`, `hotwater_status`
 
 - `esphome.esphome_web_b11440_send_notification` - Send notification
@@ -197,7 +203,7 @@ The ESP32 bridge provides these services to Home Assistant:
 ### Controls in Home Assistant
 - **Display Message** (text input) - Send custom message
 - **Display Brightness** (number, 0-100) - Adjust brightness
-- **Display Mode** (select) - Choose Clock/Sensors/Weather/Cycle
+- **Display Mode** (select) - Choose Clock/Bedroom/Weather/Cycle
 
 ## Development
 
@@ -222,7 +228,7 @@ uart.write(b'MSG:Hello World\n')
 uart.write(b'BRIGHT:50\n')
 uart.write(b'MODE:Weather\n')
 uart.write(b'WEATHER:Sunny,22 C,45%\n')
-uart.write(b'HIVE:20.5 C,21.0 C,ON,OFF\n')
+uart.write(b'BEDROOM:22.5 C,55%\n')
 ```
 
 ## Bitmap Fonts
@@ -231,6 +237,7 @@ Custom bitmap fonts provide crisp, large displays for numbers:
 
 - **bitmap_fonts.py**: 16x24 pixel font (digits 0-9, colon)
 - **bitmap_fonts_32.py**: 24x32 pixel font (digits 0-9, colon)
+- **bitmap_fonts_48.py**: 32x48 pixel font (digits 0-9, colon)
 
 ### Creating Custom Fonts
 
@@ -280,13 +287,13 @@ The `LCD_1inch28.py` library provides:
 ✅ **Complete**:
 1. Time synchronization from Home Assistant (RTC)
 2. Touch-based mode cycling with debouncing
-3. Custom bitmap fonts for large, crisp number displays
+3. Custom bitmap fonts for large, crisp number displays (16x24, 24x32, 32x48)
 4. Weather data display with auto-updates
-5. Hive thermostat integration with status indicators
+5. Bedroom temperature sensor display with dark grey background
 6. Auto-cycling Cycle mode (10-second intervals)
 7. Mode button displays current mode name
-8. Black backgrounds for optimal contrast
-9. Color-coded status indicators
+8. Multiple background colors (black, dark grey)
+9. Large temperature displays for easy reading
 10. ESPHome integration with services
 11. Home Assistant automation examples
 
@@ -303,14 +310,12 @@ data:
   humidity: "45%"
 ```
 
-**Hive Update:**
+**Bedroom Update:**
 ```yaml
-service: esphome.esphome_web_b11440_send_hive
+service: esphome.esphome_web_b11440_send_bedroom
 data:
-  current_temp: "20.5 C"
-  target_temp: "21.0 C"
-  heating_status: "ON"
-  hotwater_status: "OFF"
+  temperature: "22.5 C"
+  humidity: "55%"
 ```
 
 **Mode Change:**
@@ -362,7 +367,7 @@ Use the included Python script in `BITMAP_FONTS_README.md` to convert PNG images
 - Check ESP32 logs for sent commands
 - Monitor RP2350 serial output with `mpremote`
 
-**Weather/Hive data showing "N/A":**
+**Weather/Bedroom data showing "N/A":**
 - Verify Home Assistant automations are running
 - Check entity IDs match your setup
 - Test with manual service calls
