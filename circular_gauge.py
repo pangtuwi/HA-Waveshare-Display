@@ -182,8 +182,9 @@ class CircularGauge:
 
         # Draw from inner radius to outer radius for thickness
         for r in range(self.radius - self.thickness + 1, self.radius + 1):
-            # Calculate step size (smaller for larger radii for smooth arcs)
-            angle_step = 1.0 / r if r > 0 else 0.1
+            # Calculate step size to ensure solid fill (no gaps between pixels)
+            # Use smaller step to guarantee coverage: 0.5 pixels worth of angle
+            angle_step = 0.5 / r if r > 0 else 0.01
 
             angle = start_rad
 
@@ -267,9 +268,17 @@ class CircularGauge:
 
 def rgb_to_brg565(r, g, b):
     """
-    Convert RGB888 (0-255 per channel) to BRG565 format for MicroPython framebuf.
+    Convert RGB888 (0-255 per channel) to the display's color format.
 
-    Note: The LCD_1inch28 driver uses BRG format instead of RGB.
+    The LCD_1inch28 driver uses a non-standard color layout:
+    - Bits 15-11: Blue channel (5 bits)
+    - Bits 10-5: Red channel (6 bits) ← Red has 6 bits, not green!
+    - Bits 4-0: Green channel (5 bits)
+
+    This matches the predefined colors:
+    - lcd.red = 0x07E0 (bits 10-5 set)
+    - lcd.green = 0x001F (bits 4-0 set)
+    - lcd.blue = 0xF800 (bits 15-11 set)
 
     Args:
         r: Red value (0-255)
@@ -277,10 +286,11 @@ def rgb_to_brg565(r, g, b):
         b: Blue value (0-255)
 
     Returns:
-        16-bit BRG565 color value
+        16-bit color value for the display
 
     Example:
-        red_color = rgb_to_brg565(255, 0, 0)  # Returns red in BRG format
-        green_color = rgb_to_brg565(0, 255, 0)  # Returns green in BRG format
+        orange = rgb_to_brg565(255, 128, 0)  # Red=255, Green=128, Blue=0
+        purple = rgb_to_brg565(128, 0, 255)  # Red=128, Green=0, Blue=255
     """
-    return ((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3)
+    # Map RGB to display format: B→bits 15-11, R→bits 10-5, G→bits 4-0
+    return ((b & 0xF8) << 8) | ((r & 0xFC) << 3) | (g >> 3)
