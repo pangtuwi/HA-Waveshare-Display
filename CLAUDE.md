@@ -282,7 +282,34 @@ The driver uses BRG format (not RGB) due to MicroPython framebuf:
 - `lcd.red = 0x07E0` (actually displays green)
 - `lcd.green = 0x001f` (actually displays blue)
 - `lcd.blue = 0xf800` (actually displays red)
-- Manual RGB565 conversion: `((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3)`
+- BRG565 format: Blue(15-11), Red(10-5), Green(4-0)
+- Conversion: `((b & 0xF8) << 8) | ((r & 0xFC) << 3) | (g >> 3)`
+
+**Gamma Correction Required:**
+For intermediate color values, gamma correction (gamma=2.2) is required:
+```python
+def apply_gamma_correction(value, gamma=2.2):
+    normalized = value / 255.0
+    corrected = pow(normalized, 1.0 / gamma)
+    return int(corrected * 255.0)
+```
+
+Without gamma correction:
+- Red gradients show as blue
+- Green gradients show as black/green bands
+- Blue gradients show as green
+
+With gamma correction:
+- ✅ Single-color gradients display correctly
+- ✅ Images display with accurate colors
+- ✅ Full-intensity colors (255) work perfectly
+
+**Hardware Limitations:**
+- ⚠️ Grayscale (equal R=G=B values) is fundamentally broken at intermediate values
+- Root cause: Display has mismatched per-channel hardware gamma curves
+- Only works at: 0 (black), 64, 255 (white) - other values show green/purple artifacts
+- **Cannot be fixed in software** - use colored designs instead of grayscale
+- See COLOR_NOTES.md for complete details and testing results
 
 ### UART Communication
 - Baudrate: 115200
